@@ -98,43 +98,84 @@ with col2:
     if operation_mode == "병합" and uploaded_files:
         st.subheader("📋 파일 정보 및 순서 조정")
         
-        # 파일 정보 표시 및 순서 조정
-        total_pages = 0
-        total_size = 0
-        
         # 파일 순서를 저장할 리스트
         if 'file_order' not in st.session_state:
             st.session_state.file_order = list(range(len(uploaded_files)))
         
-        # 파일 정보와 순서 조정 UI
+        # 드래그 앤 드롭을 위한 순서 조정 UI
+        st.info("💡 **순서 조정 방법**: 파일 번호를 클릭하여 순서를 변경할 수 있습니다.")
+        
+        # 파일 정보를 테이블 형태로 표시
+        col1, col2, col3, col4, col5 = st.columns([0.5, 3, 1, 1, 1])
+        
+        with col1:
+            st.write("**순서**")
+        with col2:
+            st.write("**파일명**")
+        with col3:
+            st.write("**크기**")
+        with col4:
+            st.write("**페이지**")
+        with col5:
+            st.write("**조작**")
+        
+        st.markdown("---")
+        
+        # 파일 정보 표시 및 순서 조정
+        total_pages = 0
+        total_size = 0
+        
         for i, file in enumerate(uploaded_files):
             file_size_mb = file.size / 1024 / 1024
             total_size += file_size_mb
             
-            col_info, col_order = st.columns([3, 1])
+            # 임시 파일로 저장하여 PDF 정보 가져오기
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+                tmp_file.write(file.getvalue())
+                tmp_file_path = tmp_file.name
             
-            with col_info:
-                st.write(f"**파일 {i+1}:** {file.name}")
-                st.write(f"크기: {file_size_mb:.2f} MB")
-                
-                # 임시 파일로 저장하여 PDF 정보 가져오기
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-                    tmp_file.write(file.getvalue())
-                    tmp_file_path = tmp_file.name
-                
-                # PDF 정보 가져오기
-                merger = PDFMergerWeb()
-                pdf_info = merger.get_pdf_info(tmp_file_path)
-                total_pages += pdf_info['page_count']
-                
-                st.write(f"페이지: {pdf_info['page_count']}페이지")
+            # PDF 정보 가져오기
+            merger = PDFMergerWeb()
+            pdf_info = merger.get_pdf_info(tmp_file_path)
+            total_pages += pdf_info['page_count']
+            
+            # 임시 파일 삭제
+            os.unlink(tmp_file_path)
+            
+            # 테이블 행 표시
+            col1, col2, col3, col4, col5 = st.columns([0.5, 3, 1, 1, 1])
+            
+            with col1:
+                # 순서 표시 (클릭 가능한 버튼)
+                if st.button(f"{i+1}", key=f"order_{i}", help="클릭하여 순서 변경"):
+                    # 순서 변경 모드 활성화
+                    if 'editing_order' not in st.session_state:
+                        st.session_state.editing_order = None
+                    
+                    if st.session_state.editing_order is None:
+                        st.session_state.editing_order = i
+                        st.rerun()
+                    elif st.session_state.editing_order != i:
+                        # 순서 교환
+                        st.session_state.file_order[st.session_state.editing_order], st.session_state.file_order[i] = st.session_state.file_order[i], st.session_state.file_order[st.session_state.editing_order]
+                        st.session_state.editing_order = None
+                        st.rerun()
+                    else:
+                        st.session_state.editing_order = None
+                        st.rerun()
+            
+            with col2:
+                st.write(file.name)
                 if pdf_info['title']:
-                    st.write(f"제목: {pdf_info['title']}")
-                
-                # 임시 파일 삭제
-                os.unlink(tmp_file_path)
+                    st.caption(f"제목: {pdf_info['title']}")
             
-            with col_order:
+            with col3:
+                st.write(f"{file_size_mb:.2f} MB")
+            
+            with col4:
+                st.write(f"{pdf_info['page_count']}페이지")
+            
+            with col5:
                 # 순서 조정 버튼들
                 if i > 0:
                     if st.button("⬆️", key=f"up_{i}", help="위로 이동"):
@@ -145,8 +186,8 @@ with col2:
                     if st.button("⬇️", key=f"down_{i}", help="아래로 이동"):
                         st.session_state.file_order[i], st.session_state.file_order[i+1] = st.session_state.file_order[i+1], st.session_state.file_order[i]
                         st.rerun()
-            
-            st.markdown("---")
+        
+        st.markdown("---")
         
         # 현재 병합 순서 표시
         st.subheader("🔄 현재 병합 순서")
