@@ -1,6 +1,7 @@
 import os
 import tempfile
 import uuid
+import io
 from pathlib import Path
 from typing import List, Optional
 import logging
@@ -81,20 +82,22 @@ class PDFMergerWeb:
         """
         try:
             with open(pdf_path, 'rb') as file:
-                from PyPDF2 import PdfReader
-                reader = PdfReader(file)
-                
-                info = {
-                    'page_count': len(reader.pages),
-                    'title': reader.metadata.get('/Title', ''),
-                    'author': reader.metadata.get('/Author', ''),
-                    'subject': reader.metadata.get('/Subject', ''),
-                    'creator': reader.metadata.get('/Creator', ''),
-                    'producer': reader.metadata.get('/Producer', ''),
-                    'file_size': os.path.getsize(pdf_path)
-                }
-                
-                return info
+                pdf_data = file.read()
+            
+            from PyPDF2 import PdfReader
+            reader = PdfReader(io.BytesIO(pdf_data))
+            
+            info = {
+                'page_count': len(reader.pages),
+                'title': reader.metadata.get('/Title', ''),
+                'author': reader.metadata.get('/Author', ''),
+                'subject': reader.metadata.get('/Subject', ''),
+                'creator': reader.metadata.get('/Creator', ''),
+                'producer': reader.metadata.get('/Producer', ''),
+                'file_size': os.path.getsize(pdf_path)
+            }
+            
+            return info
                 
         except Exception as e:
             self.logger.error(f"PDF 정보 읽기 중 오류: {str(e)}")
@@ -140,10 +143,13 @@ class PDFMergerWeb:
         try:
             from PyPDF2 import PdfReader, PdfWriter
             
-            # PDF 파일 읽기
+            # PDF 파일 읽기 - 파일을 메모리에 완전히 로드
             with open(pdf_path, 'rb') as file:
-                reader = PdfReader(file)
-                total_pages = len(reader.pages)
+                pdf_data = file.read()
+            
+            # PDF 데이터로부터 reader 생성
+            reader = PdfReader(io.BytesIO(pdf_data))
+            total_pages = len(reader.pages)
             
             # 각 범위별로 PDF 파일 생성
             for i, (start, end) in enumerate(page_ranges):
