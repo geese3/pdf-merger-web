@@ -96,37 +96,63 @@ st.markdown("---")
 
 with col2:
     if operation_mode == "병합" and uploaded_files:
-        st.subheader("📋 파일 정보")
+        st.subheader("📋 파일 정보 및 순서 조정")
         
-        # 파일 정보 표시
+        # 파일 정보 표시 및 순서 조정
         total_pages = 0
         total_size = 0
         
+        # 파일 순서를 저장할 리스트
+        if 'file_order' not in st.session_state:
+            st.session_state.file_order = list(range(len(uploaded_files)))
+        
+        # 파일 정보와 순서 조정 UI
         for i, file in enumerate(uploaded_files):
             file_size_mb = file.size / 1024 / 1024
             total_size += file_size_mb
             
-            st.write(f"**파일 {i+1}:** {file.name}")
-            st.write(f"크기: {file_size_mb:.2f} MB")
+            col_info, col_order = st.columns([3, 1])
             
-            # 임시 파일로 저장하여 PDF 정보 가져오기
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-                tmp_file.write(file.getvalue())
-                tmp_file_path = tmp_file.name
+            with col_info:
+                st.write(f"**파일 {i+1}:** {file.name}")
+                st.write(f"크기: {file_size_mb:.2f} MB")
+                
+                # 임시 파일로 저장하여 PDF 정보 가져오기
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+                    tmp_file.write(file.getvalue())
+                    tmp_file_path = tmp_file.name
+                
+                # PDF 정보 가져오기
+                merger = PDFMergerWeb()
+                pdf_info = merger.get_pdf_info(tmp_file_path)
+                total_pages += pdf_info['page_count']
+                
+                st.write(f"페이지: {pdf_info['page_count']}페이지")
+                if pdf_info['title']:
+                    st.write(f"제목: {pdf_info['title']}")
+                
+                # 임시 파일 삭제
+                os.unlink(tmp_file_path)
             
-            # PDF 정보 가져오기
-            merger = PDFMergerWeb()
-            pdf_info = merger.get_pdf_info(tmp_file_path)
-            total_pages += pdf_info['page_count']
-            
-            st.write(f"페이지: {pdf_info['page_count']}페이지")
-            if pdf_info['title']:
-                st.write(f"제목: {pdf_info['title']}")
-            
-            # 임시 파일 삭제
-            os.unlink(tmp_file_path)
+            with col_order:
+                # 순서 조정 버튼들
+                if i > 0:
+                    if st.button("⬆️", key=f"up_{i}", help="위로 이동"):
+                        st.session_state.file_order[i], st.session_state.file_order[i-1] = st.session_state.file_order[i-1], st.session_state.file_order[i]
+                        st.rerun()
+                
+                if i < len(uploaded_files) - 1:
+                    if st.button("⬇️", key=f"down_{i}", help="아래로 이동"):
+                        st.session_state.file_order[i], st.session_state.file_order[i+1] = st.session_state.file_order[i+1], st.session_state.file_order[i]
+                        st.rerun()
             
             st.markdown("---")
+        
+        # 현재 병합 순서 표시
+        st.subheader("🔄 현재 병합 순서")
+        for i, order_idx in enumerate(st.session_state.file_order):
+            file = uploaded_files[order_idx]
+            st.write(f"**{i+1}번째:** {file.name}")
         
         # 전체 정보
         st.write(f"**총 파일 수:** {len(uploaded_files)}개")
@@ -169,9 +195,10 @@ if (operation_mode == "병합" and uploaded_files) or (operation_mode == "분리
         if st.button("📄 PDF 병합하기", type="primary", use_container_width=True):
             with st.spinner("PDF 파일들을 병합하는 중..."):
                 try:
-                    # 임시 파일들 저장
+                    # 임시 파일들 저장 (순서 적용)
                     temp_files = []
-                    for file in uploaded_files:
+                    for order_idx in st.session_state.file_order:
+                        file = uploaded_files[order_idx]
                         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
                             tmp_file.write(file.getvalue())
                             temp_files.append(tmp_file.name)
