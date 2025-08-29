@@ -54,19 +54,19 @@ with st.sidebar:
         
         # 페이지 범위 입력
         st.subheader("📄 페이지 범위")
-        st.info("분리할 페이지 범위를 입력하세요 (예: 1-3,5,7-9)")
+        st.info("분리할 페이지 범위를 입력하세요 (예: 1-3,5,7-9)\n빈 값으로 두면 모든 페이지를 개별적으로 분리합니다.")
         
         page_range_input = st.text_input(
             "페이지 범위",
-            placeholder="1-3,5,7-9",
-            help="쉼표로 구분하여 페이지 범위를 입력하세요"
+            placeholder="1-3,5,7-9 (빈 값 = 모든 페이지 개별 분리)",
+            help="쉼표로 구분하여 페이지 범위를 입력하세요. 빈 값으로 두면 모든 페이지를 개별적으로 분리합니다."
         )
         
         # 자동 분리 옵션
         auto_split = st.checkbox(
             "자동 분리",
             value=True,
-            help="선택하지 않은 나머지 페이지들을 자동으로 분리합니다"
+            help="페이지 범위를 입력했을 때, 선택하지 않은 나머지 페이지들을 자동으로 분리합니다"
         )
 
 # 메인 영역
@@ -240,28 +240,30 @@ if (operation_mode == "병합" and uploaded_files) or (operation_mode == "분리
                     
                     # 페이지 범위 파싱
                     if not page_range_input:
-                        st.error("❌ 페이지 범위를 입력해주세요.")
+                        # 페이지 범위를 입력하지 않으면 모든 페이지를 개별적으로 분리
+                        page_ranges = [(i, i) for i in range(1, total_pages + 1)]
+                        st.info(f"📄 페이지 범위를 입력하지 않아 모든 {total_pages}페이지를 개별적으로 분리합니다.")
                     else:
                         page_ranges = merger.parse_page_ranges(page_range_input, total_pages)
-                    
-                    # 자동 분리 옵션 처리
-                    if auto_split:
-                        all_pages = set(range(1, total_pages + 1))
-                        selected_pages = set()
-                        for start, end in page_ranges:
-                            selected_pages.update(range(start, end + 1))
                         
-                        remaining_pages = sorted(all_pages - selected_pages)
-                        if remaining_pages:
-                            # 연속된 페이지들을 범위로 그룹화
-                            current_range = [remaining_pages[0], remaining_pages[0]]
-                            for page in remaining_pages[1:]:
-                                if page == current_range[1] + 1:
-                                    current_range[1] = page
-                                else:
-                                    page_ranges.append(tuple(current_range))
-                                    current_range = [page, page]
-                            page_ranges.append(tuple(current_range))
+                        # 자동 분리 옵션 처리
+                        if auto_split:
+                            all_pages = set(range(1, total_pages + 1))
+                            selected_pages = set()
+                            for start, end in page_ranges:
+                                selected_pages.update(range(start, end + 1))
+                            
+                            remaining_pages = sorted(all_pages - selected_pages)
+                            if remaining_pages:
+                                # 연속된 페이지들을 범위로 그룹화
+                                current_range = [remaining_pages[0], remaining_pages[0]]
+                                for page in remaining_pages[1:]:
+                                    if page == current_range[1] + 1:
+                                        current_range[1] = page
+                                    else:
+                                        page_ranges.append(tuple(current_range))
+                                        current_range = [page, page]
+                                page_ranges.append(tuple(current_range))
                     
                     # PDF 분리 실행
                     output_files = merger.split_pdf(tmp_file_path, page_ranges, output_filename_prefix)
@@ -320,13 +322,8 @@ st.markdown("""
 - **파일 크기**: 최대 200MB까지 업로드 가능합니다
 - **파일 형식**: PDF 파일만 지원됩니다
 - **자동 분리**: 선택하지 않은 나머지 페이지들을 자동으로 분리
-
-### 🔧 기술 정보
-- **PyPDF2** 기반 병합/분리
-- **Streamlit Cloud**에서 호스팅
-- **설치 없이** 웹 브라우저에서 바로 사용
 """)
 
 # 푸터
 st.markdown("---")
-st.markdown("Made with ❤️ using Streamlit and PyPDF2")
+st.markdown("Made with using Streamlit and PyPDF2")
