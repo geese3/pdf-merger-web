@@ -273,32 +273,69 @@ if (operation_mode == "병합" and uploaded_files) or (operation_mode == "분리
                     # 결과 표시
                     st.subheader("✂️ 분리된 PDF 파일들")
                     
-                    # 각 분리된 파일에 대한 다운로드 버튼 생성
-                    for i, output_path in enumerate(output_files):
-                        with open(output_path, "rb") as f:
-                            pdf_data = f.read()
-                        
-                        filename = os.path.basename(output_path)
-                        
-                        # 파일 정보 표시
-                        file_info = merger.get_pdf_info(output_path)
-                        
-                        col1, col2 = st.columns([3, 1])
-                        with col1:
-                            st.write(f"**파일 {i+1}:** {filename}")
-                            st.write(f"**페이지 수:** {file_info['page_count']}페이지")
-                            st.write(f"**크기:** {file_info['file_size'] / 1024 / 1024:.2f} MB")
-                        
-                        with col2:
-                            st.download_button(
-                                label=f"📥 다운로드",
-                                data=pdf_data,
-                                file_name=filename,
-                                mime="application/pdf",
-                                use_container_width=True
-                            )
-                        
-                        st.markdown("---")
+                    # 분리된 파일들을 한 행에 4개씩 표시
+                    num_files = len(output_files)
+                    
+                    if num_files <= 4:
+                        # 4개 이하인 경우 한 행에 모두 표시
+                        cols = st.columns(num_files)
+                        for i, output_path in enumerate(output_files):
+                            with open(output_path, "rb") as f:
+                                pdf_data = f.read()
+                            
+                            filename = os.path.basename(output_path)
+                            file_info = merger.get_pdf_info(output_path)
+                            
+                            with cols[i]:
+                                st.write(f"**파일 {i+1}:** {filename}")
+                                st.write(f"**페이지:** {file_info['page_count']}페이지")
+                                st.write(f"**크기:** {file_info['file_size'] / 1024 / 1024:.2f} MB")
+                                
+                                st.download_button(
+                                    label=f"📥 다운로드",
+                                    data=pdf_data,
+                                    file_name=filename,
+                                    mime="application/pdf",
+                                    use_container_width=True
+                                )
+                    else:
+                        # 4개 초과인 경우 행별로 표시
+                        rows = (num_files + 3) // 4
+                        for row in range(rows):
+                            start_idx = row * 4
+                            end_idx = min(start_idx + 4, num_files)
+                            row_files = end_idx - start_idx
+                            
+                            cols = st.columns(4)
+                            for i in range(4):
+                                if i < row_files:
+                                    file_idx = start_idx + i
+                                    output_path = output_files[file_idx]
+                                    
+                                    with open(output_path, "rb") as f:
+                                        pdf_data = f.read()
+                                    
+                                    filename = os.path.basename(output_path)
+                                    file_info = merger.get_pdf_info(output_path)
+                                    
+                                    with cols[i]:
+                                        st.write(f"**파일 {file_idx+1}:** {filename}")
+                                        st.write(f"**페이지:** {file_info['page_count']}페이지")
+                                        st.write(f"**크기:** {file_info['file_size'] / 1024 / 1024:.2f} MB")
+                                        
+                                        st.download_button(
+                                            label=f"📥 다운로드",
+                                            data=pdf_data,
+                                            file_name=filename,
+                                            mime="application/pdf",
+                                            use_container_width=True
+                                        )
+                                else:
+                                    with cols[i]:
+                                        st.empty()
+                            
+                            if row < rows - 1:
+                                st.markdown("---")
                     
                     # 임시 파일 정리
                     merger.cleanup_temp_files([tmp_file_path] + output_files)
