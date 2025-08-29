@@ -234,3 +234,68 @@ class PDFMergerWeb:
                     self.logger.info(f"임시 파일 삭제: {file_path}")
             except Exception as e:
                 self.logger.warning(f"임시 파일 삭제 실패: {file_path} - {str(e)}")
+
+    def pdf_to_images(self, pdf_path: str, output_format: str = "PNG") -> List[str]:
+        """
+        PDF를 이미지로 변환
+        
+        Args:
+            pdf_path: PDF 파일 경로
+            output_format: 출력 이미지 형식 (PNG, JPG)
+            
+        Returns:
+            변환된 이미지 파일 경로 리스트
+        """
+        if not os.path.exists(pdf_path):
+            raise FileNotFoundError(f"파일을 찾을 수 없습니다: {pdf_path}")
+        
+        # 임시 디렉토리에 결과 파일 저장
+        temp_dir = tempfile.mkdtemp()
+        output_files = []
+        
+        try:
+            import fitz  # PyMuPDF
+            from PIL import Image
+            
+            # PDF 파일 열기
+            pdf_document = fitz.open(pdf_path)
+            
+            for page_num in range(len(pdf_document)):
+                # 페이지 가져오기
+                page = pdf_document.load_page(page_num)
+                
+                # 페이지를 이미지로 렌더링 (높은 해상도)
+                mat = fitz.Matrix(2.0, 2.0)  # 2배 확대
+                pix = page.get_pixmap(matrix=mat)
+                
+                # PIL Image로 변환
+                img_data = pix.tobytes("png")
+                img = Image.open(io.BytesIO(img_data))
+                
+                # 이미지 크기 조정 (미리보기용)
+                max_width = 300
+                if img.width > max_width:
+                    ratio = max_width / img.width
+                    new_width = int(img.width * ratio)
+                    new_height = int(img.height * ratio)
+                    img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                
+                # 파일 저장
+                output_filename = f"page_{page_num + 1}.{output_format.lower()}"
+                output_path = os.path.join(temp_dir, output_filename)
+                
+                if output_format.upper() == "PNG":
+                    img.save(output_path, "PNG")
+                else:  # JPG
+                    img = img.convert("RGB")
+                    img.save(output_path, "JPEG", quality=85)
+                
+                output_files.append(output_path)
+                self.logger.info(f"페이지 {page_num + 1} 변환 완료: {output_filename}")
+            
+            pdf_document.close()
+            return output_files
+            
+        except Exception as e:
+            self.logger.error(f"PDF 이미지 변환 중 오류 발생: {str(e)}")
+            raise e

@@ -273,7 +273,7 @@ if (operation_mode == "병합" and uploaded_files) or (operation_mode == "분리
                     # 결과 표시
                     st.subheader("✂️ 분리된 PDF 파일들")
                     
-                    # 분리된 파일들을 한 행에 4개씩 표시
+                    # 분리된 파일들을 한 행에 4개씩 표시 (이미지 미리보기 포함)
                     num_files = len(output_files)
                     
                     if num_files <= 4:
@@ -290,6 +290,19 @@ if (operation_mode == "병합" and uploaded_files) or (operation_mode == "분리
                                 st.write(f"**파일 {i+1}:** {filename}")
                                 st.write(f"**페이지:** {file_info['page_count']}페이지")
                                 st.write(f"**크기:** {file_info['file_size'] / 1024 / 1024:.2f} MB")
+                                
+                                # PDF를 이미지로 변환하여 미리보기 표시
+                                try:
+                                    preview_images = merger.pdf_to_images(output_path, "PNG")
+                                    if preview_images:
+                                        with open(preview_images[0], "rb") as img_file:
+                                            img_data = img_file.read()
+                                        st.image(img_data, caption=f"미리보기", width=200)
+                                        
+                                        # 임시 이미지 파일 정리
+                                        merger.cleanup_temp_files(preview_images)
+                                except Exception as e:
+                                    st.warning(f"미리보기 생성 실패: {str(e)}")
                                 
                                 st.download_button(
                                     label=f"📥 다운로드",
@@ -322,6 +335,19 @@ if (operation_mode == "병합" and uploaded_files) or (operation_mode == "분리
                                         st.write(f"**파일 {file_idx+1}:** {filename}")
                                         st.write(f"**페이지:** {file_info['page_count']}페이지")
                                         st.write(f"**크기:** {file_info['file_size'] / 1024 / 1024:.2f} MB")
+                                        
+                                        # PDF를 이미지로 변환하여 미리보기 표시
+                                        try:
+                                            preview_images = merger.pdf_to_images(output_path, "PNG")
+                                            if preview_images:
+                                                with open(preview_images[0], "rb") as img_file:
+                                                    img_data = img_file.read()
+                                                st.image(img_data, caption=f"미리보기", width=200)
+                                                
+                                                # 임시 이미지 파일 정리
+                                                merger.cleanup_temp_files(preview_images)
+                                        except Exception as e:
+                                            st.warning(f"미리보기 생성 실패: {str(e)}")
                                         
                                         st.download_button(
                                             label=f"📥 다운로드",
